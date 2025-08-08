@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fluentd-injector
+  namespace: kube-system
+  labels:
+    app: fluentd-injector
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: fluentd-injector
+  template:
+    metadata:
+      labels:
+        app: fluentd-injector
+    spec:
+      containers:
+      - name: webhook
+        image: ${YOUR_REGISTRY}/fluentd-injector:latest  # 替换为您的镜像仓库
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8443
+        env:
+        - name: FLUENTD_IMAGE
+          value: "fluent/fluentd:v1.14"
+        - name: AGGREGATOR_HOST
+          value: "fluentd-aggregator.logging.svc.cluster.local"
+        - name: AGGREGATOR_PORT
+          value: "24224"
+        resources:
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8443
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8443
+            scheme: HTTP
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        volumeMounts:
+        - name: webhook-certs
+          mountPath: /etc/webhook/certs
+          readOnly: true
+      volumes:
+      - name: webhook-certs
+        secret:
+          secretName: fluentd-injector-certs
